@@ -5,6 +5,7 @@
 chroma_db/
 chroma_demo_db/
 rag_vector_db/
+my-rag-system/vector_db/
 *.db
 
 # Python

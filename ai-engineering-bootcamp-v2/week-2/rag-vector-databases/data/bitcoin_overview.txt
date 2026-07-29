@@ -1,0 +1,37 @@
+# Understanding Bitcoin
+
+## What Is Bitcoin?
+
+Bitcoin is a decentralized digital currency that allows people to send and receive value directly, without relying on banks, payment processors, or any central authority. It was introduced in 2008 by a person or group using the pseudonym Satoshi Nakamoto, who published a white paper titled "Bitcoin: A Peer-to-Peer Electronic Cash System." The network went live in January 2009 with the mining of the "genesis block," the first block in the Bitcoin blockchain. Unlike traditional currencies issued by governments, Bitcoin is not controlled by any single company, country, or institution. Instead, it runs on a global network of computers that all follow the same open-source rules.
+
+## The Blockchain: A Shared Public Ledger
+
+At the heart of Bitcoin is the blockchain, a public, distributed ledger that records every transaction ever made on the network. Instead of a bank keeping a private record of who owns what, thousands of computers around the world — called nodes — each keep their own copy of the entire transaction history. New transactions are grouped together into "blocks," and each block is cryptographically linked to the one before it, forming a chain. Because every block references the previous block's unique hash, altering any past transaction would require redoing the work for every block after it, on a majority of the network's computing power simultaneously. This makes the historical record extremely difficult to tamper with.
+
+## How Transactions Work
+
+When someone wants to send Bitcoin, they use a private key, a secret piece of data, to digitally sign a transaction authorizing the transfer. This signature proves ownership without ever revealing the private key itself. The transaction is then broadcast to the network, where it sits in a pool of unconfirmed transactions known as the "mempool" until a miner includes it in a new block. Bitcoin uses what's called the UTXO model (Unspent Transaction Output), meaning wallets don't hold a simple balance the way a bank account does. Instead, your wallet tracks all the individual "outputs" from past transactions that belong to you, and a new transaction consumes some of those outputs and creates new ones, sending change back to yourself if needed.
+
+## Mining and Proof-of-Work
+
+New transactions are added to the blockchain through a process called mining. Miners are participants who use specialized computer hardware to compete in solving a difficult mathematical puzzle. This system, called Proof-of-Work, requires enormous amounts of computational effort to find a valid solution, but that solution is trivial for other computers to verify. The first miner to solve the puzzle gets to add the next block to the chain and is rewarded with newly created bitcoin, plus any transaction fees included in that block. This reward is called the "block subsidy." Mining difficulty automatically adjusts roughly every two weeks so that, on average, a new block is found about every ten minutes, regardless of how much total computing power is on the network.
+
+## Decentralization and Consensus
+
+No single entity decides what counts as a valid Bitcoin transaction. Instead, every full node independently checks that transactions and blocks follow the network's rules — for example, that no one is spending coins they don't own or creating bitcoin out of thin air. If miners ever create two competing versions of the blockchain, the network follows the "longest valid chain" rule, meaning the chain with the most accumulated Proof-of-Work is treated as the true history. This combination of independent verification and competitive mining is what allows thousands of strangers, who don't trust each other, to agree on a single shared ledger without a central referee.
+
+## Limited Supply and Halving
+
+One of Bitcoin's defining features is its fixed supply: only 21 million bitcoin will ever exist. This cap is enforced directly by the software every node runs. Roughly every four years, an event called "the halving" cuts the block reward given to miners in half, slowing the rate at which new bitcoin enters circulation. The first block reward was 50 BTC; after several halvings, it has dropped significantly, and by around the year 2140 the last fractional bitcoin is expected to be mined. This predictable, shrinking issuance schedule is often compared to precious metals like gold, and is why Bitcoin is sometimes called "digital gold."
+
+## Wallets and Keys
+
+To use Bitcoin, people rely on a wallet, software (or hardware) that manages a pair of cryptographic keys: a private key, kept secret, and a public key, from which a public wallet address is derived. Whoever controls the private key controls the funds, which is why the phrase "not your keys, not your coins" is common in the Bitcoin community. Wallets typically generate a human-readable "seed phrase" of 12 or 24 words that can restore access to funds if a device is lost. Wallets are often categorized as "hot" (connected to the internet, more convenient) or "cold" (kept offline, more secure), depending on how they store private keys.
+
+## Security, Irreversibility, and Trade-offs
+
+Bitcoin transactions are irreversible once confirmed; there is no central authority to reverse a mistaken or fraudulent payment, which places more responsibility on users to protect their keys and verify addresses. The network's security comes from the sheer amount of computing power required to rewrite history, though in theory an attacker controlling more than half the network's mining power (a "51% attack") could attempt to disrupt it, an outcome that becomes more difficult as the network grows. Critics also point to the significant energy consumption of Proof-of-Work mining and Bitcoin's price volatility as ongoing challenges, while supporters view it as a necessary trade-off for a currency that no government or company can unilaterally inflate, freeze, or censor.
+
+## Why It Matters
+
+Bitcoin introduced a working solution to a problem computer scientists had struggled with for decades: how to create scarce, transferable digital money without a trusted central party. Whether viewed as a payment network, a long-term store of value, or simply a technological experiment, Bitcoin's core innovation, combining cryptography, a distributed ledger, and economic incentives, laid the foundation for the broader cryptocurrency and blockchain ecosystem that followed.
