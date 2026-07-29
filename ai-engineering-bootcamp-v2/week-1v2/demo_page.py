@@ -70,6 +70,15 @@ def render_attempts(data: dict | str) -> None:
                 st.code(attempt["validation_error"], language="text")
 
 
+def render_raw(data: dict | str) -> None:
+    # st.json() calls JSON.parse() client-side, which throws a cryptic error on a
+    # plain-text body (e.g. FastAPI's "Method Not Allowed" or an HTML error page).
+    if isinstance(data, (dict, list)):
+        st.json(data)
+    else:
+        st.code(str(data), language="text")
+
+
 def render_response_summary(data: dict | str) -> None:
     if not isinstance(data, dict) or "error" in data:
         return
@@ -135,7 +144,7 @@ with col1:
     if st.button("Check API health"):
         status, data = call_json("GET", f"{base_url.rstrip('/')}/health")
         st.markdown(f"**HTTP {status}**" if status else "**Not connected**")
-        st.json(data)
+        render_raw(data)
 
 if submitted:
     with st.spinner("Calling /ask..."):
@@ -144,5 +153,5 @@ if submitted:
     st.markdown(f"**HTTP {status}**" if status else "**Request failed**")
     render_response_summary(data)
     render_attempts(data)
-    st.markdown("### Raw JSON")
-    st.json(data)
+    st.markdown("### Raw Response")
+    render_raw(data)
