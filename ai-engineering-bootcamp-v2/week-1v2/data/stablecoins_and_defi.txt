@@ -1,0 +1,29 @@
+# Understanding Stablecoins and DeFi
+
+## The Volatility Problem
+
+Bitcoin and Ether are both known for sharp price swings, which makes them difficult to use for everyday things like paying rent, invoicing a client, or saving for next month's expenses — nobody wants a coffee that cost $5 this morning to cost $6 by dinner. Stablecoins were created to solve this specific problem: they are cryptocurrencies explicitly designed to maintain a stable value, most commonly pegged one-to-one with a fiat currency like the US dollar. A stablecoin lets people move value around a blockchain, benefiting from speed and programmability, without also taking on the price risk of a typical crypto asset.
+
+## How Stablecoins Stay Stable
+
+There are three common approaches to maintaining a peg. Fiat-collateralized stablecoins, such as USDC and USDT, are backed by reserves of real dollars (or equivalent assets like short-term government debt) held by a company, with one token issued for every dollar held in reserve, redeemable on request. Crypto-collateralized stablecoins, such as DAI, are backed by a surplus of other cryptocurrencies locked in a smart contract — often significantly more collateral than the value of stablecoins issued, to absorb price swings in the underlying crypto assets. Algorithmic stablecoins attempt to maintain their peg purely through code and market incentives, expanding or contracting supply automatically, without holding collateral at all; this category has proven the least reliable, and several prominent algorithmic stablecoins have collapsed when market confidence broke down.
+
+## What Is DeFi?
+
+DeFi, short for "decentralized finance," refers to financial services — lending, borrowing, trading, earning interest, and more — rebuilt using smart contracts instead of banks, brokerages, or exchanges. In traditional finance, a bank decides who can borrow money and at what rate, and a stock exchange operator controls how trades are matched. In DeFi, these functions are handled by open smart contracts that anyone can inspect, and often anyone can use, without an account application, credit check, or approval from a central company. Most DeFi activity currently happens on Ethereum and similar smart-contract platforms, frequently using stablecoins as the underlying unit of value, since it is far easier to lend or trade with an asset that isn't itself swinging wildly in price.
+
+## Decentralized Exchanges
+
+A decentralized exchange, or DEX, lets users trade one token for another directly from their own wallet, without depositing funds with a company first. Many DEXs use a design called an Automated Market Maker, or AMM, instead of the traditional order book used by stock exchanges. In an AMM, users called liquidity providers deposit pairs of tokens into a shared pool, and a mathematical formula automatically sets the exchange rate between them based on the pool's balance; traders swap against this pool directly, and liquidity providers earn a small fee from every trade in exchange for supplying the funds that made it possible.
+
+## Lending and Borrowing
+
+DeFi lending protocols allow users to deposit crypto assets into a shared pool and earn interest, while other users borrow from that same pool by posting their own crypto as collateral. Because there is no credit check or identity verification, these protocols protect themselves purely through over-collateralization: a borrower typically must deposit collateral worth significantly more than the amount they borrow. If the value of that collateral falls too close to the value of the loan, the protocol automatically sells, or "liquidates," the collateral to repay the debt, without needing a human loan officer to intervene.
+
+## Risks Worth Knowing
+
+DeFi removes traditional financial intermediaries, but it does not remove risk — it changes its shape. Smart contract bugs can be exploited to drain funds, and because code is often open and irreversible once deployed, a single flaw can be catastrophic and impossible to quietly patch after the fact. Collateral-backed systems can still fail during extreme market crashes if prices fall faster than the system can liquidate positions. And because most DeFi protocols are non-custodial, meaning users hold their own funds, there is typically no company, deposit insurance, or customer support line to make a user whole if something goes wrong. This trade-off — more openness and control, less of a safety net — is central to how DeFi differs from traditional finance.
+
+## Why It Matters
+
+Stablecoins and DeFi extend the core promise of cryptocurrency — a system that runs on open rules rather than a trusted central operator — from simply holding and transferring value into the far larger world of everyday financial activity: saving, lending, borrowing, and trading. Whether this proves to be a durable alternative financial system or a higher-risk complement to traditional finance is still being tested in practice, but it represents one of the most active and closely watched areas of the broader crypto ecosystem.

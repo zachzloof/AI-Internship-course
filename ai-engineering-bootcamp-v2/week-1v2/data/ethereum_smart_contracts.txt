@@ -1,0 +1,29 @@
+# Understanding Ethereum and Smart Contracts
+
+## What Is Ethereum?
+
+Ethereum is a decentralized, blockchain-based computing platform, proposed in a 2013 white paper by programmer Vitalik Buterin and launched in July 2015. Where Bitcoin was designed primarily as a peer-to-peer digital currency, Ethereum was designed as a general-purpose platform: a global network of computers that can run programs exactly as written, without downtime, censorship, or interference from any third party. Ethereum has its own native cryptocurrency, called Ether (ETH), which is used to pay for computation on the network, but Ether is really a byproduct of Ethereum's real purpose — providing a decentralized "world computer" that anyone can build applications on top of.
+
+## Smart Contracts
+
+The core innovation Ethereum introduced is the smart contract: a program that is stored on the blockchain and runs automatically when predetermined conditions are met. A smart contract might say, in effect, "if this payment arrives, then transfer ownership of this asset," and the code enforces that rule itself, without a bank, lawyer, or company acting as a middleman. Once deployed, a smart contract's code cannot be secretly altered, and every step it takes is recorded on the public ledger, making its behavior transparent and auditable. Smart contracts are typically written in a programming language called Solidity, which was purpose-built for Ethereum.
+
+## The Ethereum Virtual Machine
+
+Smart contracts run inside the Ethereum Virtual Machine (EVM), a sandboxed runtime environment present on every node in the network. Because every participating computer runs the same EVM and processes the same instructions, the result of running a smart contract is deterministic and identical everywhere, which is what allows thousands of independent nodes to agree on the outcome without trusting each other. The EVM is often described as a single, shared, global computer that anyone can submit programs to, even though the underlying hardware is distributed across the world.
+
+## Gas: Paying for Computation
+
+Running code on Ethereum is not free. Every operation, from a simple transfer to a complex smart contract execution, consumes a unit called "gas," and users pay for gas in Ether. Gas exists for two main reasons: it compensates the validators who dedicate computing power to process transactions, and it protects the network from spam or infinite loops, since a program that requires more computation simply costs more to run. When network demand is high, gas prices rise, since users are effectively bidding for limited block space; when demand is low, gas becomes cheaper. Every transaction also has a gas limit, a cap on how much computation the sender is willing to pay for before the operation is stopped.
+
+## Tokens and Decentralized Applications
+
+Because smart contracts can define their own rules, developers can use them to create entirely new digital assets on top of Ethereum, most commonly following the ERC-20 standard for fungible tokens (interchangeable, like currency) or the ERC-721 standard for non-fungible tokens, or NFTs (unique, non-interchangeable digital items). A decentralized application, or "dApp," is a piece of software whose backend logic runs as smart contracts on Ethereum rather than on a company's private servers. Popular categories of dApps include decentralized exchanges for trading tokens, lending platforms, games, and digital identity systems.
+
+## Proof-of-Stake
+
+For its first several years, Ethereum, like Bitcoin, relied on Proof-of-Work mining to secure the network. In September 2022, in an upgrade known as "the Merge," Ethereum switched entirely to Proof-of-Stake. Under Proof-of-Stake, instead of miners competing with computing power, "validators" lock up, or "stake," a quantity of Ether as collateral for the chance to be chosen to propose and verify new blocks. Validators who act honestly earn rewards, while validators who attempt to cheat the network can have a portion of their staked Ether destroyed, a penalty called "slashing." This change reduced Ethereum's energy consumption by more than 99 percent compared to Proof-of-Work.
+
+## Why It Matters
+
+Ethereum expanded the idea introduced by Bitcoin — a trustworthy, decentralized ledger — into a platform for trustworthy, decentralized computation. Instead of asking only "who owns what," Ethereum asks "what rules should automatically govern this asset or agreement," and lets code answer that question in a way no single party controls. This shift from a single-purpose currency network to a programmable global platform is why Ethereum is often considered the foundation of the broader "Web3" movement, including decentralized finance, NFTs, and decentralized organizations.
