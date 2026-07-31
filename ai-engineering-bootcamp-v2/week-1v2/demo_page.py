@@ -1,4 +1,4 @@
-"""Minimal Streamlit UI for the Week 1 v2 `/ask` demo.
+"""Minimal Streamlit UI for the Week 1 v2 RAG API: ingest + ask.
 
 Run:
   streamlit run demo_page.py
@@ -14,7 +14,7 @@ WORKDIR_CMD = "ai-engineering-bootcamp-v2/week-1v2"
 MODELS = ["gpt-4o-mini", "gpt-4o", "o3-mini"]
 
 
-def build_payload(question: str, model: str, force_bad: bool) -> dict:
+def build_ask_payload(question: str, model: str, force_bad: bool) -> dict:
     return {
         "question": question,
         "model": model,
@@ -22,10 +22,17 @@ def build_payload(question: str, model: str, force_bad: bool) -> dict:
     }
 
 
-def render_curl(base_url: str, payload: dict) -> str:
+def build_ingest_payload(text: str, document_id: str, source: str) -> dict:
+    payload = {"text": text, "document_id": document_id}
+    if source.strip():
+        payload["source"] = source.strip()
+    return payload
+
+
+def render_curl(base_url: str, path: str, payload: dict) -> str:
     body = json.dumps(payload)
     return (
-        f'curl -s -X POST {base_url.rstrip("/")}/ask '
+        f'curl -s -X POST {base_url.rstrip("/")}{path} '
         f'-H "Content-Type: application/json" '
         f"-d '{body}'"
     )
@@ -46,6 +53,15 @@ def call_json(method: str, url: str, payload: dict | None = None) -> tuple[int, 
         return 0, {"error": f"Cannot reach {url}. Start the API server first."}
     except httpx.HTTPError as exc:
         return 0, {"error": str(exc)}
+
+
+def render_raw(data: dict | str) -> None:
+    # st.json() calls JSON.parse() client-side, which throws a cryptic error on a
+    # plain-text body (e.g. FastAPI's "Method Not Allowed" or an HTML error page).
+    if isinstance(data, (dict, list)):
+        st.json(data)
+    else:
+        st.code(str(data), language="text")
 
 
 def render_attempts(data: dict | str) -> None:
@@ -70,13 +86,33 @@ def render_attempts(data: dict | str) -> None:
                 st.code(attempt["validation_error"], language="text")
 
 
-def render_raw(data: dict | str) -> None:
-    # st.json() calls JSON.parse() client-side, which throws a cryptic error on a
-    # plain-text body (e.g. FastAPI's "Method Not Allowed" or an HTML error page).
-    if isinstance(data, (dict, list)):
-        st.json(data)
+def render_citations(data: dict | str) -> None:
+    """Make the RAG grounding outcome unmissable: what was cited, or that it refused."""
+
+    if not isinstance(data, dict):
+        return
+
+    answer = data.get("answer")
+    if not isinstance(answer, dict):
+        return
+
+    citations = answer.get("citations") or []
+    if citations:
+        st.success(f"Cited sources: {', '.join(citations)}")
     else:
-        st.code(str(data), language="text")
+        st.warning("No sources cited — the model did not find enough grounded information to answer.")
+
+    sources = data.get("sources") or []
+    if sources:
+        with st.expander(f"Retrieved chunks ({len(sources)})", expanded=False):
+            for chunk in sources:
+                used = chunk.get("document_id") in citations
+                marker = "✅ used" if used else "— not used"
+                st.markdown(
+                    f"**{chunk.get('document_id')}** · chunk {chunk.get('chunk_index')} "
+                    f"· score {chunk.get('score'):.3f} · {marker}"
+                )
+                st.caption(chunk.get("text", "")[:300] + "...")
 
 
 def render_response_summary(data: dict | str) -> None:
@@ -99,10 +135,20 @@ def render_response_summary(data: dict | str) -> None:
     metric_cols[3].metric("Cost", f"${data.get('cost_usd', '-')}")
 
 
-st.set_page_config(page_title="Week 1 v2 /ask Demo", layout="centered")
-st.title("Week 1 v2: Minimal `/ask` Demo")
+def render_ingest_result(data: dict | str) -> None:
+    if not isinstance(data, dict) or "error" in data:
+        return
+    if "chunks_indexed" in data:
+        st.success(
+            f"Ingested `{data.get('document_id')}` — {data.get('chunks_indexed')} chunks indexed."
+        )
+
+
+st.set_page_config(page_title="Week 1 v2 RAG Demo", layout="centered")
+st.title("Week 1 v2: RAG `/ingest` + `/ask` Demo")
 st.caption(
-    "One final demo endpoint. The separate `stages/` files show how this grows step by step."
+    "Ingest text into the vector store, then ask questions answered only from what's been "
+    "ingested — with citations, or a refusal when the docs don't cover it."
 )
 
 base_url = st.sidebar.text_input(
@@ -120,11 +166,40 @@ st.sidebar.code(
     f"cd {WORKDIR_CMD}\nsource .venv/bin/activate\nstreamlit run demo_page.py",
     language="bash",
 )
+if st.sidebar.button("Check API health"):
+    status, data = call_json("GET", f"{base_url.rstrip('/')}/health")
+    st.sidebar.markdown(f"**HTTP {status}**" if status else "**Not connected**")
+    st.sidebar.json(data if isinstance(data, dict) else {"response": data})
 
+st.header("1. Ingest a document")
+with st.form("ingest_form"):
+    ingest_text = st.text_area(
+        "Text",
+        "Remote work: up to 3 days per week with manager approval.",
+        height=150,
+    )
+    ingest_col1, ingest_col2 = st.columns(2)
+    document_id = ingest_col1.text_input("document_id", "handbook")
+    source = ingest_col2.text_input("source (optional)", "")
+    ingest_submitted = st.form_submit_button("Ingest", type="primary")
+
+ingest_payload = build_ingest_payload(ingest_text, document_id, source)
+st.code(render_curl(base_url, "/ingest", ingest_payload), language="bash")
+
+if ingest_submitted:
+    with st.spinner("Calling /ingest..."):
+        status, data = call_json("POST", f"{base_url.rstrip('/')}/ingest", ingest_payload)
+    st.markdown(f"**HTTP {status}**" if status else "**Request failed**")
+    render_ingest_result(data)
+    render_raw(data)
+
+st.divider()
+
+st.header("2. Ask a question")
 with st.form("ask_form"):
     question = st.text_area(
         "Question",
-        "What is Retrieval-Augmented Generation in one sentence?",
+        "What is the remote work policy?",
         height=100,
     )
     model = st.selectbox("Model", MODELS, index=0)
@@ -132,25 +207,17 @@ with st.form("ask_form"):
         "Force a bad first response to demo validation + retry",
         value=False,
     )
-    submitted = st.form_submit_button("Ask", type="primary")
+    ask_submitted = st.form_submit_button("Ask", type="primary")
 
-payload = build_payload(question, model, force_bad)
+ask_payload = build_ask_payload(question, model, force_bad)
+st.code(render_curl(base_url, "/ask", ask_payload), language="bash")
 
-st.markdown("### Request")
-st.code(render_curl(base_url, payload), language="bash")
-
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("Check API health"):
-        status, data = call_json("GET", f"{base_url.rstrip('/')}/health")
-        st.markdown(f"**HTTP {status}**" if status else "**Not connected**")
-        render_raw(data)
-
-if submitted:
+if ask_submitted:
     with st.spinner("Calling /ask..."):
-        status, data = call_json("POST", f"{base_url.rstrip('/')}/ask", payload)
+        status, data = call_json("POST", f"{base_url.rstrip('/')}/ask", ask_payload)
     st.markdown("### Response")
     st.markdown(f"**HTTP {status}**" if status else "**Request failed**")
+    render_citations(data)
     render_response_summary(data)
     render_attempts(data)
     st.markdown("### Raw Response")

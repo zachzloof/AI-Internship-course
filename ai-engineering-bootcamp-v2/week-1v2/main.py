@@ -53,8 +53,10 @@ GROUNDING_PROMPT_TEMPLATE = (
     "\"I don't have enough information to answer that.\" and leave citations empty.\n\n"
     "Only use the parts of the context that directly answer the question — do not pad "
     "the answer with unrelated retrieved details just because they were returned. "
-    "In the citations field, list the document_id of every chunk you actually used "
-    "to write the answer — do not list chunks you were given but didn't use.\n\n"
+    "In the citations field, list ONLY the plain document_id value (e.g. \"bitcoin_overview\") "
+    "of every chunk you actually used to write the answer — not the chunk number, not the "
+    "\"[document_id: ... | chunk ...]\" label, just the id itself. Do not list chunks you were "
+    "given but didn't use.\n\n"
     "Context:\n{context}\n\n"
     "Question: {question}"
 )
@@ -261,6 +263,20 @@ def build_grounded_prompt(question: str, chunks: list[RetrievedChunk]) -> str:
     return GROUNDING_PROMPT_TEMPLATE.format(context=context, question=question)
 
 
+def normalize_citations(citations: list[str], known_document_ids: set[str]) -> list[str]:
+    """The model sometimes echoes the full "[document_id: X | chunk N]" context label instead
+    of the plain id. Match each raw citation against known ids by substring rather than trusting
+    exact formatting, so the field stays reliable regardless of minor prompt-following slips.
+    """
+
+    matched = []
+    for raw in citations:
+        for doc_id in known_document_ids:
+            if doc_id in raw and doc_id not in matched:
+                matched.append(doc_id)
+    return matched
+
+
 @app.get("/debug/retrieve")
 def debug_retrieve(q: str, k: int = 5) -> list[RetrievedChunk]:
     """Retrieval only, no generation — verify the right chunks come back before wiring /ask.
@@ -396,6 +412,9 @@ def ask(body: AskRequest) -> AskResponse:
             else:
                 answer, tokens_used, prompt_tokens, completion_tokens = call_structured_model(
                     grounded_prompt, model
+                )
+                answer.citations = normalize_citations(
+                    answer.citations, {c.document_id for c in retrieved}
                 )
                 total_tokens_used += tokens_used
                 total_prompt_tokens += prompt_tokens
