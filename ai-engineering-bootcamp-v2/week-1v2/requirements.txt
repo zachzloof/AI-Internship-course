@@ -1,5 +1,5 @@
 fastapi[standard]
-google-adk
+google-adk[mcp]
 google-genai
 httpx
 langchain-text-splitters
