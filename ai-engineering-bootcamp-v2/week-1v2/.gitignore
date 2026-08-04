@@ -6,9 +6,6 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 
-# Escalation tickets written by the MCP filesystem tool at runtime
-tickets/
-
 # Virtual environments
 venv/
 .venv/

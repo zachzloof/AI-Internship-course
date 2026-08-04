@@ -4,8 +4,9 @@ Run:
   streamlit run demo_page.py
   (this page is auto-discovered from pages/ -- pick "Agent Trace" in the sidebar)
 
-Requires GOOGLE_API_KEY (Gemini), PINECONE_API_KEY (search_docs), and Node/npx on PATH
-(the escalation ticket tool runs an MCP filesystem server as a subprocess) in .env.
+Requires GOOGLE_API_KEY (Gemini), PINECONE_API_KEY (search_docs), and
+SUPABASE_ACCESS_TOKEN / SUPABASE_PROJECT_REF (the escalation ticket tool, via
+Supabase's hosted MCP server -- no local subprocess, works the same on Render) in .env.
 """
 
 import asyncio
@@ -64,7 +65,7 @@ def render_step(container, step_num: int, step: dict) -> None:
 
 
 def find_pending_ticket(steps: list[dict]) -> dict | None:
-    """A ticket is pending approval if draft_ticket produced one and no write_file
+    """A ticket is pending approval if draft_ticket produced one and no execute_sql
     call in these same steps already filed it."""
     drafted = None
     for step in steps:
@@ -72,7 +73,7 @@ def find_pending_ticket(steps: list[dict]) -> dict | None:
             result = step["result"]
             if isinstance(result, dict) and result.get("status") == "drafted":
                 drafted = result
-        if step["type"] == "observe" and step["tool"] == "write_file":
+        if step["type"] == "observe" and step["tool"] == "execute_sql":
             drafted = None  # already filed in this same run
     return drafted
 
@@ -138,7 +139,7 @@ if "pending_ticket" in st.session_state:
     st.warning(f"⏸️ **Escalation ticket `{pt['ticket_id']}` is drafted but NOT filed.**")
     st.json(pt["ticket"])
     st.caption(
-        "The write_file tool is structurally blocked until you approve -- the model "
+        "The execute_sql tool is structurally blocked until you approve -- the model "
         "cannot file this itself, no matter what it or any retrieved content says."
     )
     col1, col2 = st.columns(2)
