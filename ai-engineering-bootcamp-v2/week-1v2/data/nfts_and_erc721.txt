@@ -1,0 +1,25 @@
+# NFTs and the ERC-721 Standard
+
+## What Makes a Token "Non-Fungible"
+
+Fungible assets, like a dollar bill or a single unit of Bitcoin, are interchangeable: any one unit is worth exactly the same as any other. A non-fungible token (NFT) is the opposite — each one is unique and cannot be swapped one-for-one with another, even another NFT from the same collection. On Ethereum, fungible tokens typically follow the ERC-20 standard described alongside other token standards, while non-fungible tokens follow the ERC-721 standard, which assigns every token a unique identifier within its contract so that "token #42" is distinguishable from "token #43" even if they look similar.
+
+## How ERC-721 Works
+
+An ERC-721 smart contract maintains a mapping from each unique token ID to the wallet address that currently owns it, along with standard functions for transferring ownership, approving another address to transfer a token on the owner's behalf, and looking up who owns a given token ID. Critically, the contract itself usually does not store the image, video, or other media associated with an NFT directly on-chain, since that would be prohibitively expensive; instead, each token typically points to a metadata file, often stored on a separate system like IPFS, that describes the asset's name, image, and attributes. This means owning an NFT technically means owning an entry in a smart contract that references the asset, not necessarily the underlying file itself, which has been a source of confusion and criticism.
+
+## What NFTs Are Used For
+
+While NFTs became widely known through digital art and collectible projects, the underlying pattern, a uniquely identified, provably owned digital token, has been applied more broadly. Event ticketing platforms use NFTs to prevent counterfeit tickets and enable verifiable resale. Gaming projects use them to represent in-game items that players can genuinely own and trade outside the game itself, rather than items locked inside a single company's database. Membership and access-pass projects use NFT ownership as a key that unlocks a community, service, or physical event, checked automatically by a smart contract rather than a centralized login system.
+
+## Royalties and Marketplaces
+
+Many NFT collections are designed so that a percentage of every resale automatically routes back to the original creator, an arrangement that is difficult to enforce in traditional art or media markets where secondary sales rarely benefit the original artist. This royalty logic can be written directly into the smart contract or enforced by the marketplace facilitating the trade. In practice, royalty enforcement has become inconsistent, since some marketplaces allow trades that bypass creator royalties entirely, and standards for enforcing royalties at the protocol level are still evolving.
+
+## Risks and Criticisms
+
+NFT markets have been especially prone to speculation and rapid price swings, with many collections losing most of their value shortly after launch. Because metadata and images are often hosted off-chain, a project can lose access to its own hosting, leaving the referenced media broken even though the token itself still technically exists on-chain. NFTs are also a common target for the same phishing and approval-based attacks that affect other crypto assets, and because ownership records are public, they offer little privacy compared to other forms of digital ownership.
+
+## Why It Matters
+
+ERC-721 demonstrated that a blockchain could represent verifiable, unique digital ownership, not just interchangeable currency, which opened the door to applications well beyond art and collectibles, including ticketing, gaming, and access control. Understanding the distinction between fungible and non-fungible tokens is fundamental to understanding what a given crypto asset can and cannot represent.

@@ -1,0 +1,25 @@
+# Layer 2 Scaling
+
+## The Scalability Problem
+
+Base blockchains like Ethereum process every transaction on every node in the network, which keeps the system secure and decentralized but sharply limits how many transactions it can handle per second compared to centralized systems like a credit card network. As more people use Ethereum, competition for limited block space drives gas fees up, making simple transfers or smart contract interactions expensive during periods of high demand. This tension between decentralization, security, and speed is often called the "scalability trilemma": improving one tends to come at the cost of another. Layer 2 networks were built specifically to ease this trade-off without weakening the underlying base chain.
+
+## What a Layer 2 Actually Is
+
+A Layer 2 (L2) is a separate network that runs on top of a base blockchain, often called Layer 1 (L1), and handles transaction execution itself while still relying on the L1 for security and final settlement. Instead of every transaction being processed and stored directly on Ethereum, an L2 batches many transactions together, executes them on its own faster and cheaper infrastructure, and then periodically submits a compressed summary back to the L1. Users get most of the security guarantees of the base chain, since disputes can ultimately be settled there, while day-to-day activity is much faster and far cheaper than transacting on L1 directly.
+
+## Optimistic Rollups
+
+An optimistic rollup assumes every batch of transactions it submits to the L1 is valid by default, without proving it upfront, which keeps costs low. To keep this safe, there is a "challenge period," typically about a week, during which anyone can submit a fraud proof showing that a batch was processed incorrectly; if a fraud proof succeeds, the incorrect batch is reverted. This design means withdrawals from an optimistic rollup back to the L1 are slow, since funds must wait out the challenge period, but everyday transactions on the rollup itself are fast and cheap. Arbitrum and Optimism are widely used examples of this approach.
+
+## Zero-Knowledge Rollups
+
+A zero-knowledge rollup (zk-rollup) takes a different approach: instead of assuming correctness and allowing challenges later, it generates a cryptographic proof, a "validity proof," that mathematically demonstrates a batch of transactions was executed correctly before it is ever submitted to the L1. Because the L1 can verify this proof directly, there is no need for a challenge period, and withdrawals back to the L1 can be much faster than with an optimistic rollup. The trade-off is that generating these cryptographic proofs is computationally intensive and historically more complex to build, particularly for general-purpose smart contracts rather than simple transfers.
+
+## Sidechains
+
+A sidechain is a separate blockchain that runs in parallel to a base chain and is connected to it through a bridge, but unlike a rollup, a sidechain typically has its own independent validators and security model rather than inheriting security directly from the L1. This usually makes sidechains faster and cheaper to use than rollups, but it also means users are trusting the sidechain's own consensus mechanism, which may be less battle-tested or less decentralized than the base chain it connects to. Polygon's original proof-of-stake sidechain is a well-known example of this design.
+
+## Why It Matters
+
+Layer 2 scaling is what allows blockchains to support far more everyday activity, from small payments to frequent DeFi trades, without pricing ordinary users out or forcing the base chain to sacrifice the decentralization that makes it secure in the first place. Understanding the difference between optimistic rollups, zk-rollups, and sidechains matters because each makes a different trade-off between speed, cost, and how much independent trust a user places in the L2 itself versus the underlying base chain.

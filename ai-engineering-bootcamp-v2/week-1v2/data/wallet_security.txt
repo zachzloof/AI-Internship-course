@@ -1,0 +1,25 @@
+# Wallet Security and Custody
+
+## Hot Wallets vs. Cold Wallets
+
+A wallet's private keys can be stored in two broad ways. A "hot" wallet keeps keys on a device connected to the internet, such as a phone app or browser extension, which makes sending and receiving funds fast and convenient but exposes the keys to malware, phishing, and remote attacks. A "cold" wallet keeps keys entirely offline, most commonly on a dedicated hardware device or even a piece of paper, so a transaction must be physically signed on that offline device before it can be broadcast. Cold storage is significantly more resistant to remote theft, which is why exchanges and long-term holders typically keep the bulk of their funds cold and only move small amounts into a hot wallet for everyday spending.
+
+## Seed Phrases and Key Backup
+
+Most modern wallets generate a single "seed phrase," usually 12 or 24 common English words, that can deterministically regenerate every private key the wallet ever produces. This means backing up one seed phrase is enough to restore an entire wallet, including every address it has used, on a new device. The seed phrase is also the single biggest point of failure: anyone who obtains it gains full control of the funds, permanently and irreversibly, with no password reset or customer support to appeal to. Security guidance is consistent across the industry: never type a seed phrase into a website or app that requests it unprompted, never store it as a plain digital photo or cloud note, and keep physical backups in more than one secure location in case of fire or theft.
+
+## Custodial vs. Non-Custodial Wallets
+
+A non-custodial wallet is one where the user alone holds the private keys, meaning no company or intermediary can freeze, restrict, or recover the funds on the user's behalf. A custodial wallet, such as the default wallet on most crypto exchanges, means the exchange holds the private keys on the user's behalf, and the user's balance is really a claim against the exchange rather than direct on-chain ownership. Custodial setups are easier for beginners and allow features like password resets, but they reintroduce the exact counterparty risk cryptocurrency was designed to remove: if the custodian is hacked, becomes insolvent, or restricts withdrawals, users can lose access to funds they believed they owned outright.
+
+## Common Attack Vectors
+
+Phishing remains the most common way funds are stolen: a fake website, browser extension, or support agent tricks a user into revealing a seed phrase or approving a malicious transaction. "Approval phishing" is a more subtle variant on Ethereum-style networks, where a user signs a transaction that grants a malicious smart contract ongoing permission to move a specific token, and the attacker drains the wallet later without needing any further action from the victim. SIM-swapping, where an attacker convinces a phone carrier to transfer a victim's number to a new SIM card, can also defeat SMS-based two-factor authentication on custodial accounts. Because on-chain transactions are irreversible, none of these attacks can typically be undone once funds have moved.
+
+## Multi-Signature Wallets
+
+A multi-signature ("multisig") wallet requires more than one private key to authorize a transaction, for example two out of three designated keys, rather than relying on a single point of failure. This is commonly used by organizations and security-conscious individuals to spread trust across multiple devices, locations, or people, so that no single compromised key is enough to move funds. Multisig setups add operational complexity and are slower to use for everyday spending, which is why they are more common for treasury management and large holdings than for a typical hot wallet used for daily transactions.
+
+## Why It Matters
+
+Wallet security is where most real-world cryptocurrency losses actually happen, not through flaws in the underlying blockchain itself. Understanding the trade-offs between convenience and safety, hot and cold storage, and custodial and non-custodial control is essential to using cryptocurrency responsibly, since the same irreversibility that makes the technology resistant to censorship also removes the safety net users are accustomed to from traditional banking.

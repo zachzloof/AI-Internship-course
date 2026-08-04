@@ -1,0 +1,25 @@
+# When Stablecoins Fail: Depegging Events
+
+## What "Depegging" Means
+
+A stablecoin is designed to hold a constant value, most commonly one U.S. dollar, but that peg is only as strong as the mechanism backing it. "Depegging" is when a stablecoin's market price moves meaningfully away from its intended value, even briefly, revealing that the backing mechanism could not fully absorb the pressure it faced. A depeg can be temporary, with the price recovering within hours or days as arbitrage traders and the underlying mechanism restore balance, or it can be permanent, where the stablecoin never recovers and the project collapses entirely.
+
+## The Algorithmic Stablecoin Collapse of 2022
+
+The most widely studied example of a permanent depeg involved an algorithmic stablecoin that maintained its dollar peg not through cash or crypto reserves, but through a coded relationship with a companion token: users could always burn one dollar of the stablecoin for one dollar's worth of the companion token, and vice versa, with the system relying on trader incentives to keep the price at exactly one dollar. In May 2022, large withdrawals from a lending platform tied to the stablecoin triggered a wave of selling that overwhelmed this mechanism. As the stablecoin slipped below one dollar, the arbitrage process meant to restore the peg instead flooded the market with newly minted companion tokens, collapsing that token's price by more than 99 percent within days and dragging the stablecoin down with it. Tens of billions of dollars in value were wiped out, making it one of the largest single losses in crypto history.
+
+## Why Algorithmic Designs Are More Fragile
+
+Unlike a fiat-collateralized stablecoin, which is backed one-to-one by real dollars or equivalent assets sitting in reserve, an algorithmic stablecoin's peg depends entirely on continued market confidence and the assumption that its companion token retains value. This creates a reflexive loop: if confidence drops, the mechanism designed to restore the peg can itself become the channel that destroys value faster, since minting more of a rapidly devaluing companion token does not create real economic value out of nothing. This is often described as a "death spiral," where the very tool meant to defend the peg accelerates its collapse once trust breaks down past a certain point.
+
+## Depegs in Collateralized Stablecoins
+
+Even fiat- and crypto-collateralized stablecoins are not immune to temporary depegs. In one notable case in 2023, a major fiat-backed stablecoin briefly dropped several cents below its dollar peg after news broke that a portion of its cash reserves were held at a bank that had just failed, raising doubts about whether every token was truly redeemable for a real dollar. The stablecoin recovered its peg within days once the issuer confirmed the reserves were safe, illustrating that even well-collateralized stablecoins carry real-world counterparty risk tied to wherever their backing assets are actually held.
+
+## Lessons for Evaluating a Stablecoin
+
+Because depegging events tend to follow the same underlying pattern, a loss of confidence exposing a weakness in the backing mechanism, evaluating a stablecoin means asking what specifically backs it, how transparently and frequently that backing is verified, and what happens to the peg under a sudden wave of withdrawals. Purely algorithmic designs with no external collateral have historically proven the most fragile, while collateralized designs are safer but still depend on the trustworthiness, liquidity, and transparency of wherever the backing assets are actually held.
+
+## Why It Matters
+
+Stablecoin failures matter far beyond the token itself, since stablecoins are used as the base unit of value across much of DeFi; when one depegs, every protocol, loan, and trading pair built on top of it can be affected simultaneously. Understanding how and why past depegs happened is essential context for judging how resilient any given stablecoin's design actually is, rather than assuming "stable" is a guarantee rather than an engineering claim that can fail under stress.

@@ -1,0 +1,25 @@
+# DAOs and On-Chain Governance
+
+## What a DAO Is
+
+A decentralized autonomous organization (DAO) is a group coordinated through rules encoded in smart contracts and enforced automatically on a blockchain, rather than through a traditional legal entity with executives and a board. Membership and voting power are typically represented by a governance token, and decisions such as spending treasury funds, changing protocol parameters, or approving new features are made by members submitting and voting on proposals rather than by a centralized management team issuing top-down decisions. In principle, this makes a DAO's decision-making transparent and auditable by anyone, since every proposal and vote is recorded on-chain.
+
+## How Governance Proposals Work
+
+A typical DAO governance process starts with an informal discussion phase, often on a forum, where a member drafts a proposal and gathers feedback before it is formally submitted on-chain. Once submitted, token holders vote during a fixed window, usually with voting power proportional to the number of governance tokens held or delegated to them. If a proposal reaches the required quorum and passes, the change it describes, commonly a treasury transfer or a parameter update, is executed automatically by a smart contract, without needing a company employee to manually carry it out. Some DAOs add a timelock, a mandatory delay between a vote passing and its execution, giving members a final window to notice and react to a harmful proposal before it takes effect.
+
+## Token-Weighted Voting and Its Problems
+
+Because voting power in most DAOs is proportional to token holdings, large holders, sometimes called "whales," can have outsized influence over outcomes compared to many smaller participants combined. This has led to criticism that token-weighted voting can concentrate real decision-making power in a small number of wallets, echoing the very centralization DAOs were meant to avoid. Some DAOs address this with delegation systems, where smaller holders assign their voting power to a trusted representative, or with alternative models like quadratic voting, which reduces the influence of very large holders relative to simple token-weighted votes, though these alternatives introduce their own complexity and have seen limited real-world adoption.
+
+## Treasury Management
+
+Many DAOs control substantial on-chain treasuries, often holding a mix of their own governance token, stablecoins, and other crypto assets, funded through mechanisms like token sales or a share of protocol revenue. Treasury decisions, including grants to contributors, funding for development, or emergency spending, are typically subject to the same proposal-and-vote process as other governance actions, which can make routine operational spending slow compared to a traditional company but also makes it far more transparent, since every treasury transaction is publicly visible on-chain.
+
+## Legal and Practical Challenges
+
+DAOs exist in a legal gray area in most jurisdictions, since "the code is the rules" does not automatically translate into a recognized legal entity that can sign contracts, hold real-world bank accounts, or shield members from personal liability. Some DAOs have registered as legal entities, such as a limited liability company in a jurisdiction that recognizes DAO structures, specifically to address this gap. Coordination itself is also harder in practice than in theory: low voter turnout is common, since many token holders do not participate in governance at all, and complex proposals can be difficult for a broad, often anonymous membership to meaningfully evaluate before voting.
+
+## Why It Matters
+
+DAOs represent an attempt to run organizations and manage shared resources through transparent, automatically enforced rules rather than centralized management, extending the trust-minimizing philosophy behind cryptocurrency itself into organizational governance. Understanding both how on-chain voting works and where it tends to break down in practice, from whale influence to low participation, is essential to evaluating whether a given DAO's governance is meaningfully decentralized or centralized in practice despite its structure.
