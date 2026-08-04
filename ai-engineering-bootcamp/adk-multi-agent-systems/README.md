@@ -113,3 +113,6 @@ Supabase     Remote     │
 └───────────────────────┘
 ```
 
+
+
+capstone: When a user submits a crypto-related question, the agent should classify it as conceptual/technical, market-data, or account-specific and route it to the matching specialist tool (RAG retrieval, market-data API, or escalation/ticket tool) to produce the answer

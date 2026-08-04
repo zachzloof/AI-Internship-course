@@ -4,6 +4,7 @@ Run:
   uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 """
 
+import json
 import os
 import time
 from pathlib import Path
@@ -117,6 +118,28 @@ class IngestResponse(BaseModel):
     document_id: str
     chunks_indexed: int
     status: str
+
+
+class AgentRequest(BaseModel):
+    message: str = Field(min_length=1)
+
+
+class AgentStep(BaseModel):
+    """One tool call the agent made. `observation` is truncated -- this is a summary
+    for API callers, not a full trace (see agent_loop_proof.md / the Streamlit Agent
+    Trace page for the complete Think/Act/Observe log)."""
+
+    tool: str
+    observation: str
+
+
+class AgentResponse(BaseModel):
+    """Deliberately narrow: only `answer` and `steps` can ever be returned. Because
+    FastAPI validates outgoing data against this model, there is no field this
+    endpoint could accidentally leak an API key or env var through."""
+
+    answer: str
+    steps: list[AgentStep]
 
 
 @app.get("/health")
@@ -457,3 +480,45 @@ def ask(body: AskRequest) -> AskResponse:
         status_code=502,
         detail=f"Model response failed schema validation after retry: {last_error}",
     )
+
+
+MAX_OBSERVATION_CHARS = 300
+
+
+@app.post("/agent")
+async def agent(body: AgentRequest) -> AgentResponse:
+    """Runs the Session 3 ADK agent (crypto_knowledge_agent) on a user message.
+
+    Returns the final answer plus a short steps[] summary (tool name + truncated
+    observation per tool call) -- not the full Think/Act/Observe trace. Response is
+    validated against AgentResponse, so nothing beyond those two fields can ever be
+    returned; no keys, no env vars.
+
+    agent_app is imported lazily (inside the function, not at module load) because
+    agent_app.py itself imports retrieve_chunks from this module -- importing it at
+    the top of main.py would create a circular import.
+
+    curl -s -X POST http://127.0.0.1:8000/agent \
+      -H "Content-Type: application/json" \
+      -d '{"message": "What is the maximum supply of Bitcoin?"}'
+
+    curl -s -X POST https://your-service.onrender.com/agent \
+      -H "Content-Type: application/json" \
+      -d '{"message": "What is the maximum supply of Bitcoin?"}'
+    """
+    from agent_app import root_agent, run_agent_steps
+
+    steps: list[AgentStep] = []
+    answer = "(no response)"
+
+    try:
+        async for step in run_agent_steps(root_agent, body.message):
+            if step["type"] == "observe":
+                observation = json.dumps(step["result"])[:MAX_OBSERVATION_CHARS]
+                steps.append(AgentStep(tool=step["tool"], observation=observation))
+            elif step["type"] == "think":
+                answer = step["text"]
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Agent run failed: {exc}")
+
+    return AgentResponse(answer=answer, steps=steps)

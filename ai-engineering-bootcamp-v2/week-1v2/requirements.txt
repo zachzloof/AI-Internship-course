@@ -1,4 +1,6 @@
 fastapi[standard]
+google-adk
+google-genai
 httpx
 langchain-text-splitters
 openai
