@@ -21,6 +21,19 @@ Three real tools, three genuinely different integration styles (direct SDK call,
 HTTP API, MCP protocol) -- roles are distinct enough that a router is warranted, not
 just one agent pretending to be three.
 
+crypto_knowledge_agent and market_agent use mode="single_turn", not plain
+sub_agents transfer -- the router calls them as tools and keeps control, so a
+compound question ("price of X, and what is Y") can hit both in the same turn and get
+a combined answer. Found by live testing: with plain transfer_to_agent, whichever
+specialist the router handed off to would silently answer the other half of a compound
+question from its own parametric knowledge instead of refusing or delegating, since
+control (and thus the ability to call anyone else's tool) doesn't come back to the
+router mid-turn. It looked fine in the trace and was even factually correct on famous
+facts (Ethereum's Merge date, Bitcoin's supply cap) -- which is exactly what made it
+dangerous: a confident, ungrounded answer with a trace that looks clean. escalation_agent
+deliberately keeps the default full-transfer mode, since its draft -> approve flow needs
+a real multi-turn session the router hands off to, not a single-turn tool call.
+
 The escalation tool originally ran a local filesystem MCP server (npx-spawned). That
 only works where Node is installed with a persistent disk -- broke the moment the plan
 was to also expose this via /agent on Render (no Node in that container, ephemeral
@@ -71,7 +84,14 @@ USER_ID = "user1"
 # actually run. "gemini-flash-latest" is an alias Google keeps pointed at whatever
 # current flash-tier model is live -- confirmed working end-to-end on 2026-08-04.
 MODEL = "gemini-flash-latest"
-MAX_LLM_CALLS = 6  # hard ceiling on model calls per run -- stops a runaway tool-call loop
+# Hard ceiling on model calls per run -- stops a runaway tool-call loop. Higher than a
+# single specialist would ever need on its own, because a compound question now runs
+# the router PLUS up to two single_turn specialists as nested sub-conversations in one
+# turn (router decision + each specialist's own tool-call-then-answer + router's final
+# synthesis) -- 6 was calibrated for the old single-specialist-only architecture and
+# genuinely got exceeded by a real compound-question test after switching to
+# mode="single_turn".
+MAX_LLM_CALLS = 12
 
 # =====================================================================================
 # Specialist 1: crypto_knowledge_agent -- conceptual/technical (real Pinecone RAG)
@@ -107,6 +127,13 @@ def search_docs(query: str) -> dict:
 crypto_knowledge_agent = Agent(
     name="crypto_knowledge_agent",
     model=MODEL,
+    # single_turn: the router calls this as a tool and keeps control, instead of
+    # transferring the whole turn away. Needed so a compound question ("price of X,
+    # and what is Y") can hit both this agent and market_agent in the same turn --
+    # with plain transfer_to_agent, whichever specialist got control would answer the
+    # other half from its own parametric knowledge instead of refusing or delegating,
+    # a real (if hard to notice) grounding violation caught by live testing.
+    mode="single_turn",
     description=(
         "Answers conceptual or technical crypto/DeFi questions (how something works, "
         "definitions, mechanisms) by searching the ingested knowledge base."
@@ -169,6 +196,7 @@ def get_crypto_price(coin_id: str) -> dict:
 market_agent = Agent(
     name="market_agent",
     model=MODEL,
+    mode="single_turn",  # see crypto_knowledge_agent's comment on why
     description=(
         "Answers live market-data questions (current price, 24h change) using a real "
         "market-data API. Not for historical facts or account issues."
@@ -332,13 +360,18 @@ router_agent = Agent(
     name="crypto_triage_router",
     model=MODEL,
     instruction=(
-        "Route the user's crypto-related message to exactly one specialist:\n"
+        "Route the user's crypto-related message to the specialist(s) that fit:\n"
         "- crypto_knowledge_agent: conceptual/technical questions (how something works, "
         "definitions, mechanisms, historical facts).\n"
         "- market_agent: live price/market-data questions.\n"
         "- escalation_agent: account-specific issues, complaints, disputes, or anything "
         "needing human review -- including approving/filing a previously drafted ticket.\n"
-        "Never answer directly yourself."
+        "If a single message genuinely needs more than one of crypto_knowledge_agent and "
+        "market_agent (e.g. it asks for both a live price AND a conceptual/historical "
+        "fact), call each of the ones it needs and combine their answers into one "
+        "response yourself -- do not answer the part outside a specialist's domain "
+        "yourself, and do not silently drop half the question. "
+        "Never answer directly yourself otherwise."
     ),
     sub_agents=[crypto_knowledge_agent, market_agent, escalation_agent],
 )
