@@ -370,6 +370,42 @@ escalation_agent = Agent(
 # Router
 # =====================================================================================
 
+
+def force_delegation_on_first_turn(callback_context, llm_request):
+    """before_model_callback: structurally forces the router's first LLM call in a turn
+    to invoke a specialist rather than answer from its own knowledge.
+
+    Found live: the router answered a question directly despite its instruction saying
+    "never answer directly yourself" -- a prompted-only constraint on a router, same as
+    the escalation gate before it got require_approval_for_write, isn't reliable, since
+    nothing stops the model from choosing not to call a tool. This closes that gap the
+    same way: structurally, not just with wording.
+
+    Only gates the FIRST call: sets Gemini's function-calling mode to ANY (must call
+    *some* tool, router's choice of which) only when no tool has been called yet in this
+    invocation. Once at least one specialist has actually responded, later calls revert
+    to normal (AUTO) function-calling so the router can still synthesize a combined
+    answer for compound questions (e.g. price + a conceptual fact) instead of being
+    forced into a third, unnecessary tool call just to produce that summary.
+    """
+    already_called_a_tool = any(
+        part.function_call is not None
+        for content in llm_request.contents
+        for part in (content.parts or [])
+    )
+    if already_called_a_tool:
+        return None
+
+    if llm_request.config is None:
+        llm_request.config = types.GenerateContentConfig()
+    llm_request.config.tool_config = types.ToolConfig(
+        function_calling_config=types.FunctionCallingConfig(
+            mode=types.FunctionCallingConfigMode.ANY
+        )
+    )
+    return None
+
+
 router_agent = Agent(
     name="crypto_triage_router",
     model=MODEL,
@@ -385,9 +421,12 @@ router_agent = Agent(
         "fact), call each of the ones it needs and combine their answers into one "
         "response yourself -- do not answer the part outside a specialist's domain "
         "yourself, and do not silently drop half the question. "
-        "Never answer directly yourself otherwise."
+        "Your sole purpose is routing to these specialists -- you have no knowledge of "
+        "your own to answer from. Never answer directly yourself; if nothing seems to "
+        "fit, route to crypto_knowledge_agent anyway and let it search before refusing."
     ),
     sub_agents=[crypto_knowledge_agent, market_agent, escalation_agent],
+    before_model_callback=force_delegation_on_first_turn,
 )
 
 root_agent = router_agent  # ADK convention: entrypoint/tools look for `root_agent`
