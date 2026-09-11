@@ -114,11 +114,54 @@ Copy `.env.example` to `.env` and fill these in:
 | `GOOGLE_API_KEY` | `agent_app.py` | `/agent` and the Streamlit Agent Trace page (Gemini) |
 | `SUPABASE_ACCESS_TOKEN` | `agent_app.py` | Filing tickets via the hosted Supabase MCP server |
 | `SUPABASE_PROJECT_REF` | `agent_app.py` | Same |
+| `LANGFUSE_PUBLIC_KEY` | `main.py`, `agent_app.py` | Sending traces (see [Tracing](#tracing-langfuse) below) |
+| `LANGFUSE_SECRET_KEY` | Same | Same |
+| `LANGFUSE_BASE_URL` | Same | Same — your Langfuse region/self-host URL |
 
 Missing `GOOGLE_API_KEY`/Supabase vars only breaks the agent side — `/ask` and the RAG
 demo page work fine without them. Missing Supabase vars specifically only breaks
 *filing* a ticket; drafting still works and the app prints a warning at import time
-instead of failing.
+instead of failing. Missing Langfuse vars only disables tracing — `get_client()`
+degrades to a no-op client rather than erroring, so every endpoint still works.
+
+## Tracing (Langfuse)
+
+Every LLM/RAG/agent code path is instrumented with [Langfuse](https://langfuse.com):
+
+- `/ask` and `/ingest` are each one named trace (`ask-request`, `ingest-document`),
+  tagged by endpoint, with curated input/output on the root span (not raw request
+  bodies). `retrieve_chunks()` (shared by `/ask`, `/debug/retrieve`, and the agent's
+  `search_docs` tool) gets its own `retriever`-typed observation nested inside whichever
+  trace called it. The OpenAI client is the `langfuse.openai` drop-in wrapper, so every
+  chat completion and embedding call is auto-captured as a properly typed `generation`
+  with model name and token usage — no manual instrumentation needed for those.
+- `/agent` and the Streamlit Agent Trace page both run through `agent_app.py`'s
+  `run_agent_steps`, which is instrumented once, in one place
+  (`GoogleADKInstrumentor().instrument()`), so both surfaces get the same tracing for
+  free. `session_id`/`user_id` are mapped automatically from the ADK session; each
+  surface tags its runs (`agent-api` vs `agent-streamlit`) so you can filter by which
+  one produced a trace.
+- The escalation HITL decision is scored, not just traced: clicking **Approve & File**
+  or **Reject** on the Agent Trace page calls `langfuse.create_score()` against the
+  drafting turn's trace, so a human's actual decision is queryable data, not just
+  something you'd have to re-read the trace to know.
+
+**Setup:** add `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` to
+`.env` (get a free project at [cloud.langfuse.com](https://cloud.langfuse.com) →
+Settings → API Keys). Then look for traces named `ask-request`, `ingest-document`,
+`agent-run`, or `agent-escalation-approval` in the Langfuse **Traces** view.
+
+**A known instrumentation limitation, found by checking real traces (not assumed):**
+for the two `single_turn` specialists (`crypto_knowledge_agent`, `market_agent`), the
+current `openinference-instrumentation-google-adk` (latest as of writing, v0.1.27)
+emits both a bare `TOOL`-typed dispatch span and a separate `AGENT`-typed execution span
+as siblings for the same call — a redundant pair, though not a data-loss issue (the
+`AGENT` span still has full nested detail). `escalation_agent`'s full-transfer
+(`transfer_to_agent`) path doesn't show this — only the two agents called as ADK
+`AgentTool`s do. There's no public option on `GoogleADKInstrumentor` to suppress just
+that redundant span; fixing it would mean patching the third-party library. Worth
+knowing when you're reading a trace, not something this instrumentation can fix from
+application code.
 
 ## Running it locally (no Render)
 
@@ -210,7 +253,7 @@ base URL at your Render service; Streamlit itself isn't deployed here.
 3. **Root Directory:** `ai-engineering-bootcamp-v2/week-1v2`
 4. **Build command:** `pip install --upgrade pip && pip install -r requirements.txt`
 5. **Start command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
-6. **Environment variables:** add all six from the table above (Render's dashboard has
+6. **Environment variables:** add all nine from the table above (Render's dashboard has
    an "Environment" tab — mark each as a secret, don't commit them).
 7. Deploy, then confirm: `curl https://<your-service>.onrender.com/health`.
 8. Ingest the knowledge base against the deployed index (skip if you're reusing an

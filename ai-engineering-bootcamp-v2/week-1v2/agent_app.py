@@ -74,6 +74,18 @@ from main import retrieve_chunks, RAG_TOP_K
 
 load_dotenv()
 
+# Auto-instruments every ADK Runner/Agent/tool call via OpenTelemetry -- must run after
+# env vars are loaded (needs LANGFUSE_* to authenticate) and before any Runner.run_async
+# call, so it's placed here, ahead of the agent/tool definitions below. Because this
+# module is the single place all three consumers (CLI, Streamlit, /agent) go through to
+# run the agent, instrumenting here (not in main.py or the Streamlit pages) covers all of
+# them from one call.
+from langfuse import get_client, propagate_attributes
+from openinference.instrumentation.google_adk import GoogleADKInstrumentor
+
+langfuse = get_client()
+GoogleADKInstrumentor().instrument()
+
 THIS_DIR = Path(__file__).resolve().parent
 APP_NAME = "capstone"
 USER_ID = "user1"
@@ -399,6 +411,7 @@ async def run_agent_steps(
     session_service: InMemorySessionService | None = None,
     session_id: str | None = None,
     state_delta: dict | None = None,
+    trace_tags: list[str] | None = None,
 ):
     """Runs the agent and yields Think/Act/Observe steps as they happen.
 
@@ -409,6 +422,14 @@ async def run_agent_steps(
     Pass session_service/session_id back in (instead of leaving them None) to continue
     an existing session -- e.g. the escalation approve-and-file follow-up turn, which
     needs the same session as the draft turn plus a state_delta granting approval.
+
+    trace_tags lets each caller mark which surface a run came from (e.g. "agent-api" vs
+    "agent-streamlit") without this function needing to know about any of them -- ADK's
+    Runner.run_async is already instrumented (see GoogleADKInstrumentor().instrument()
+    above), so this only needs to name/tag that trace, not create a second one. Each
+    yielded step also carries the run's Langfuse trace_id, since the only reference to it
+    (needed to later attach a human approve/reject score) is available here, inside the
+    active span -- a caller can't retrieve it after the fact.
     """
     service = session_service or InMemorySessionService()
     if session_id is None:
@@ -419,24 +440,42 @@ async def run_agent_steps(
     content = types.Content(role="user", parts=[types.Part(text=message)])
     run_config = RunConfig(max_llm_calls=max_llm_calls)
 
-    async for event in runner.run_async(
-        user_id=USER_ID,
-        session_id=session_id,
-        new_message=content,
-        run_config=run_config,
-        state_delta=state_delta,
-    ):
-        for call in event.get_function_calls():
-            yield {"type": "act", "author": event.author, "tool": call.name, "args": call.args}
-        for resp in event.get_function_responses():
-            yield {
-                "type": "observe",
-                "author": event.author,
-                "tool": resp.name,
-                "result": resp.response,
-            }
-        if event.is_final_response() and event.content and event.content.parts:
-            yield {"type": "think", "author": event.author, "text": event.content.parts[0].text}
+    is_approval_turn = bool(state_delta and state_delta.get("escalation_approved"))
+    trace_name = "agent-escalation-approval" if is_approval_turn else "agent-run"
+    tags = list(trace_tags or []) + (["escalation-approval"] if is_approval_turn else [])
+
+    with propagate_attributes(trace_name=trace_name, tags=tags):
+        async for event in runner.run_async(
+            user_id=USER_ID,
+            session_id=session_id,
+            new_message=content,
+            run_config=run_config,
+            state_delta=state_delta,
+        ):
+            trace_id = langfuse.get_current_trace_id()
+            for call in event.get_function_calls():
+                yield {
+                    "type": "act",
+                    "author": event.author,
+                    "tool": call.name,
+                    "args": call.args,
+                    "trace_id": trace_id,
+                }
+            for resp in event.get_function_responses():
+                yield {
+                    "type": "observe",
+                    "author": event.author,
+                    "tool": resp.name,
+                    "result": resp.response,
+                    "trace_id": trace_id,
+                }
+            if event.is_final_response() and event.content and event.content.parts:
+                yield {
+                    "type": "think",
+                    "author": event.author,
+                    "text": event.content.parts[0].text,
+                    "trace_id": trace_id,
+                }
 
 
 async def ask(agent: Agent, message: str, max_llm_calls: int = MAX_LLM_CALLS) -> str:

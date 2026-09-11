@@ -11,15 +11,23 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from openai import OpenAI
-from pinecone import Pinecone, ServerlessSpec
-from pydantic import BaseModel, Field, ValidationError
 
 THIS_DIR = Path(__file__).resolve().parent
 load_dotenv(THIS_DIR / ".env")
 load_dotenv(THIS_DIR.parent / ".env")
+
+from fastapi import FastAPI, HTTPException
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langfuse import get_client, observe, propagate_attributes
+
+# Langfuse must be imported (and its OpenAI patch applied) after env vars are loaded and
+# before the OpenAI client is constructed, or it can't pick up credentials / patch the
+# client in time -- see langfuse.com/docs "Common Mistakes" on import order.
+from langfuse.openai import OpenAI
+from pinecone import Pinecone, ServerlessSpec
+from pydantic import BaseModel, Field, ValidationError
+
+langfuse = get_client()
 
 app = FastAPI(title="Week 1 v2 /ask Demo")
 _client: OpenAI | None = None
@@ -216,6 +224,7 @@ def delete_existing_document_chunks(index, document_id: str) -> None:
 
 
 @app.post("/ingest")
+@observe(name="ingest-document")
 def ingest(body: IngestRequest) -> IngestResponse:
     """Chunk, embed, and upsert a document into the vector store.
 
@@ -223,60 +232,86 @@ def ingest(body: IngestRequest) -> IngestResponse:
       -H "Content-Type: application/json" \
       -d '{"text": "Remote work: up to 3 days per week with manager approval.", "document_id": "handbook"}'
     """
-
-    text = body.text.strip()
-    if not text:
-        raise HTTPException(status_code=400, detail="text must not be empty")
-
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ". ", " ", ""],
-    )
-    chunks = splitter.split_text(text)
-    if not chunks:
-        raise HTTPException(status_code=400, detail="No chunks produced from input text")
-
-    source = body.source or body.document_id
-    embeddings = embed_texts(chunks)
-    vectors = [
-        {
-            "id": f"{body.document_id}::{i}",
-            "values": embedding,
-            "metadata": {
+    with propagate_attributes(tags=["ingest"]):
+        langfuse.update_current_span(
+            input={
                 "document_id": body.document_id,
-                "chunk_index": i,
-                "source": source,
-                "text": chunk,
-            },
-        }
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings))
-    ]
+                "source": body.source,
+                "text_length": len(body.text),
+            }
+        )
 
-    index = get_pinecone_index()
-    delete_existing_document_chunks(index, body.document_id)
-    index.upsert(vectors=vectors)
+        text = body.text.strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="text must not be empty")
 
-    return IngestResponse(document_id=body.document_id, chunks_indexed=len(chunks), status="ok")
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=CHUNK_SIZE,
+            chunk_overlap=CHUNK_OVERLAP,
+            separators=["\n\n", "\n", ". ", " ", ""],
+        )
+        chunks = splitter.split_text(text)
+        if not chunks:
+            raise HTTPException(status_code=400, detail="No chunks produced from input text")
+
+        source = body.source or body.document_id
+        embeddings = embed_texts(chunks)
+        vectors = [
+            {
+                "id": f"{body.document_id}::{i}",
+                "values": embedding,
+                "metadata": {
+                    "document_id": body.document_id,
+                    "chunk_index": i,
+                    "source": source,
+                    "text": chunk,
+                },
+            }
+            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+        ]
+
+        index = get_pinecone_index()
+        delete_existing_document_chunks(index, body.document_id)
+        index.upsert(vectors=vectors)
+
+        result = IngestResponse(document_id=body.document_id, chunks_indexed=len(chunks), status="ok")
+        langfuse.update_current_span(output=result.model_dump())
+        return result
 
 
 def retrieve_chunks(question: str, k: int) -> list[RetrievedChunk]:
-    """Embed the question and return the top-k most similar chunks. No LLM call."""
+    """Embed the question and return the top-k most similar chunks. No LLM call.
 
-    query_embedding = embed_texts([question])[0]
-    index = get_pinecone_index()
-    result = index.query(vector=query_embedding, top_k=k, include_metadata=True)
+    Shared by /ask, /debug/retrieve, and agent_app.py's search_docs tool -- instrumented
+    here, not at each call site, so every caller gets a properly typed `retriever`
+    observation (distinct from the `generation` type the embedding call itself gets via
+    the langfuse.openai wrapper) nested under whatever span is currently active.
+    """
 
-    return [
-        RetrievedChunk(
-            document_id=match["metadata"].get("document_id", "unknown"),
-            chunk_index=match["metadata"].get("chunk_index", -1),
-            source=match["metadata"].get("source", "unknown"),
-            score=match["score"],
-            text=match["metadata"].get("text", ""),
+    with langfuse.start_as_current_observation(
+        as_type="retriever", name="retrieve-chunks", input={"question": question, "k": k}
+    ) as retriever_span:
+        query_embedding = embed_texts([question])[0]
+        index = get_pinecone_index()
+        result = index.query(vector=query_embedding, top_k=k, include_metadata=True)
+
+        chunks = [
+            RetrievedChunk(
+                document_id=match["metadata"].get("document_id", "unknown"),
+                chunk_index=match["metadata"].get("chunk_index", -1),
+                source=match["metadata"].get("source", "unknown"),
+                score=match["score"],
+                text=match["metadata"].get("text", ""),
+            )
+            for match in result["matches"]
+        ]
+        retriever_span.update(
+            output=[
+                {"document_id": c.document_id, "chunk_index": c.chunk_index, "score": c.score}
+                for c in chunks
+            ]
         )
-        for match in result["matches"]
-    ]
+        return chunks
 
 
 def build_grounded_prompt(question: str, chunks: list[RetrievedChunk]) -> str:
@@ -309,7 +344,11 @@ def debug_retrieve(q: str, k: int = 5) -> list[RetrievedChunk]:
 
     if not q.strip():
         raise HTTPException(status_code=400, detail="q must not be empty")
-    return retrieve_chunks(q, k)
+    # No generation happens here, so retrieve_chunks' own `retriever` observation is
+    # already the whole unit of work -- an extra wrapping span would just be a redundant
+    # parent with nothing else under it. propagate_attributes only adds the tag.
+    with propagate_attributes(tags=["debug"]):
+        return retrieve_chunks(q, k)
 
 
 def compute_cost_usd(model: str, prompt_tokens: int, completion_tokens: int) -> float:
@@ -366,120 +405,136 @@ def call_malformed_json_once(question: str, model: ModelName) -> tuple[str, int,
 
 
 @app.post("/ask")
+@observe(name="ask-request")
 def ask(body: AskRequest) -> AskResponse:
-    model = body.model or DEFAULT_MODEL
-    last_error: str | None = None
-    attempts: list[AttemptResult] = []
-    total_tokens_used = 0
-    total_prompt_tokens = 0
-    total_completion_tokens = 0
-    start = time.perf_counter()
+    with propagate_attributes(tags=["ask"]):
+        model = body.model or DEFAULT_MODEL
+        langfuse.update_current_span(input={"question": body.question, "model": model})
+        last_error: str | None = None
+        attempts: list[AttemptResult] = []
+        total_tokens_used = 0
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        start = time.perf_counter()
 
-    retrieved = retrieve_chunks(body.question, RAG_TOP_K)
+        retrieved = retrieve_chunks(body.question, RAG_TOP_K)
 
-    # Genuinely empty index (nothing ingested yet) — refuse without spending an LLM call.
-    # A non-empty-but-irrelevant retrieval still goes to the model, which judges relevance
-    # itself via the grounding prompt (similarity search always returns *something*).
-    if not retrieved:
-        return AskResponse(
-            answer=Answer(
-                answer="I don't have enough information to answer that.",
-                confidence=0.0,
-                sources_needed=True,
-            ),
-            tokens_used=0,
-            model=model,
-            latency_ms=int((time.perf_counter() - start) * 1000),
-            cost_usd=0.0,
-            attempts=[],
-            sources=[],
-        )
+        # Genuinely empty index (nothing ingested yet) — refuse without spending an LLM call.
+        # A non-empty-but-irrelevant retrieval still goes to the model, which judges relevance
+        # itself via the grounding prompt (similarity search always returns *something*).
+        if not retrieved:
+            result = AskResponse(
+                answer=Answer(
+                    answer="I don't have enough information to answer that.",
+                    confidence=0.0,
+                    sources_needed=True,
+                ),
+                tokens_used=0,
+                model=model,
+                latency_ms=int((time.perf_counter() - start) * 1000),
+                cost_usd=0.0,
+                attempts=[],
+                sources=[],
+            )
+            langfuse.update_current_span(output=result.answer.model_dump())
+            return result
 
-    grounded_prompt = build_grounded_prompt(body.question, retrieved)
+        grounded_prompt = build_grounded_prompt(body.question, retrieved)
 
-    for attempt in range(2):
-        try:
-            if body.force_bad and attempt == 0:
-                raw, tokens_used, prompt_tokens, completion_tokens = call_malformed_json_once(
-                    body.question, model
-                )
-                total_tokens_used += tokens_used
-                total_prompt_tokens += prompt_tokens
-                total_completion_tokens += completion_tokens
+        for attempt in range(2):
+            try:
+                if body.force_bad and attempt == 0:
+                    raw, tokens_used, prompt_tokens, completion_tokens = call_malformed_json_once(
+                        body.question, model
+                    )
+                    total_tokens_used += tokens_used
+                    total_prompt_tokens += prompt_tokens
+                    total_completion_tokens += completion_tokens
 
-                try:
-                    answer = Answer.model_validate_json(raw)
-                except ValidationError as exc:
-                    last_error = str(exc)
+                    try:
+                        answer = Answer.model_validate_json(raw)
+                    except ValidationError as exc:
+                        last_error = str(exc)
+                        attempts.append(
+                            AttemptResult(
+                                attempt=attempt + 1,
+                                step="forced_bad_json",
+                                ok=False,
+                                message="Validation failed, so the endpoint retries with structured output.",
+                                raw_output=raw,
+                                validation_error=str(exc),
+                            )
+                        )
+                        continue
+
                     attempts.append(
                         AttemptResult(
                             attempt=attempt + 1,
                             step="forced_bad_json",
-                            ok=False,
-                            message="Validation failed, so the endpoint retries with structured output.",
+                            ok=True,
+                            message="Unexpectedly passed validation.",
                             raw_output=raw,
-                            validation_error=str(exc),
                         )
                     )
-                    continue
-
-                attempts.append(
-                    AttemptResult(
-                        attempt=attempt + 1,
-                        step="forced_bad_json",
-                        ok=True,
-                        message="Unexpectedly passed validation.",
-                        raw_output=raw,
+                else:
+                    answer, tokens_used, prompt_tokens, completion_tokens = call_structured_model(
+                        grounded_prompt, model
                     )
+                    answer.citations = normalize_citations(
+                        answer.citations, {c.document_id for c in retrieved}
+                    )
+                    total_tokens_used += tokens_used
+                    total_prompt_tokens += prompt_tokens
+                    total_completion_tokens += completion_tokens
+                    attempts.append(
+                        AttemptResult(
+                            attempt=attempt + 1,
+                            step="structured_output",
+                            ok=True,
+                            message="Structured output matched the Answer schema.",
+                        )
+                    )
+
+                latency_ms = int((time.perf_counter() - start) * 1000)
+                cost_usd = compute_cost_usd(
+                    model, total_prompt_tokens, total_completion_tokens
                 )
-            else:
-                answer, tokens_used, prompt_tokens, completion_tokens = call_structured_model(
-                    grounded_prompt, model
+                result = AskResponse(
+                    answer=answer,
+                    tokens_used=total_tokens_used,
+                    model=model,
+                    latency_ms=latency_ms,
+                    cost_usd=round(cost_usd, 6),
+                    attempts=attempts,
+                    sources=retrieved,
                 )
-                answer.citations = normalize_citations(
-                    answer.citations, {c.document_id for c in retrieved}
+                langfuse.update_current_span(
+                    output={
+                        "answer": answer.answer,
+                        "confidence": answer.confidence,
+                        "citations": answer.citations,
+                        "sources_needed": answer.sources_needed,
+                        "tokens_used": total_tokens_used,
+                        "cost_usd": result.cost_usd,
+                    }
                 )
-                total_tokens_used += tokens_used
-                total_prompt_tokens += prompt_tokens
-                total_completion_tokens += completion_tokens
+                return result
+            except (ValidationError, ValueError) as exc:
+                last_error = str(exc)
                 attempts.append(
                     AttemptResult(
                         attempt=attempt + 1,
                         step="structured_output",
-                        ok=True,
-                        message="Structured output matched the Answer schema.",
+                        ok=False,
+                        message="Structured output failed validation.",
+                        validation_error=str(exc),
                     )
                 )
 
-            latency_ms = int((time.perf_counter() - start) * 1000)
-            cost_usd = compute_cost_usd(
-                model, total_prompt_tokens, total_completion_tokens
-            )
-            return AskResponse(
-                answer=answer,
-                tokens_used=total_tokens_used,
-                model=model,
-                latency_ms=latency_ms,
-                cost_usd=round(cost_usd, 6),
-                attempts=attempts,
-                sources=retrieved,
-            )
-        except (ValidationError, ValueError) as exc:
-            last_error = str(exc)
-            attempts.append(
-                AttemptResult(
-                    attempt=attempt + 1,
-                    step="structured_output",
-                    ok=False,
-                    message="Structured output failed validation.",
-                    validation_error=str(exc),
-                )
-            )
-
-    raise HTTPException(
-        status_code=502,
-        detail=f"Model response failed schema validation after retry: {last_error}",
-    )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Model response failed schema validation after retry: {last_error}",
+        )
 
 
 MAX_OBSERVATION_CHARS = 300
@@ -511,8 +566,13 @@ async def agent(body: AgentRequest) -> AgentResponse:
     steps: list[AgentStep] = []
     answer = "(no response)"
 
+    # Not wrapped in @observe: GoogleADKInstrumentor (instrumented once in agent_app.py,
+    # which every consumer of run_agent_steps goes through) already gives runner.run_async
+    # its own properly typed root trace -- an extra span here would just double up on it,
+    # not add anything (see the skill's "don't emit duplicate dispatch + execution nodes").
+    # trace_tags only labels that existing trace as having come through the HTTP API.
     try:
-        async for step in run_agent_steps(root_agent, body.message):
+        async for step in run_agent_steps(root_agent, body.message, trace_tags=["agent-api"]):
             if step["type"] == "observe":
                 observation = json.dumps(step["result"])[:MAX_OBSERVATION_CHARS]
                 steps.append(AgentStep(tool=step["tool"], observation=observation))

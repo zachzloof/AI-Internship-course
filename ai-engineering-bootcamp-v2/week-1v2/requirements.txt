@@ -3,7 +3,9 @@ google-adk[mcp]
 google-genai
 httpx
 langchain-text-splitters
+langfuse
 openai
+openinference-instrumentation-google-adk
 pinecone
 python-dotenv
 streamlit

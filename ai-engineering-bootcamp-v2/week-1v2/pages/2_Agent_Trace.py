@@ -14,7 +14,7 @@ import asyncio
 import streamlit as st
 from google.adk.sessions import InMemorySessionService
 
-from agent_app import MAX_LLM_CALLS, MODEL, new_session_id, root_agent, run_agent_steps
+from agent_app import MAX_LLM_CALLS, MODEL, langfuse, new_session_id, root_agent, run_agent_steps
 
 st.set_page_config(page_title="Agent Trace", layout="centered")
 st.title("Crypto Triage Router -- Live Trace")
@@ -88,6 +88,7 @@ async def run_turn(message: str, session_service, session_id, state_delta=None):
         session_service=session_service,
         session_id=session_id,
         state_delta=state_delta,
+        trace_tags=["agent-streamlit"],
     ):
         step_num += 1
         steps.append(step)
@@ -125,11 +126,15 @@ if run_clicked:
             # triggers -- Streamlit reruns the whole script on every click, so the
             # service/session_id from *this* run have to be stashed here to be
             # reused by the follow-up turn instead of starting a new session.
+            # trace_id is stashed the same way, so the human's Approve/Reject decision
+            # can be attached as a score to the draft turn's trace after this rerun --
+            # there's no other way to get back to it once this run's context is gone.
             st.session_state.pending_ticket = {
                 "ticket_id": pending["ticket_id"],
                 "ticket": pending["ticket"],
                 "service": service,
                 "session_id": session_id,
+                "trace_id": steps[-1]["trace_id"] if steps else None,
             }
 
 
@@ -161,8 +166,28 @@ if "pending_ticket" in st.session_state:
             st.error(f"Filing failed: {exc}")
         else:
             st.success(f"Ticket `{pt['ticket_id']}` filed.")
+        # Recorded on the draft turn's trace (not the filing turn's, which is a separate
+        # trace) since that's the decision being scored -- did a human approve *this*
+        # draft -- and lets Langfuse's Sessions view show the approval alongside the
+        # draft it belongs to.
+        if pt.get("trace_id"):
+            langfuse.create_score(
+                trace_id=pt["trace_id"],
+                name="escalation-decision",
+                value="approved",
+                data_type="CATEGORICAL",
+                comment=f"Human approved and filed ticket {pt['ticket_id']}",
+            )
         del st.session_state.pending_ticket
 
     if reject_clicked:
         st.info(f"Ticket `{pt['ticket_id']}` rejected -- it was never filed.")
+        if pt.get("trace_id"):
+            langfuse.create_score(
+                trace_id=pt["trace_id"],
+                name="escalation-decision",
+                value="rejected",
+                data_type="CATEGORICAL",
+                comment=f"Human rejected ticket {pt['ticket_id']}",
+            )
         del st.session_state.pending_ticket
